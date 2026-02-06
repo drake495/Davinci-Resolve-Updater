@@ -27,7 +27,7 @@ API_BASE="https://www.blackmagicdesign.com/api"
 REFER_ID="77ef91f67a9e411bbbe299e595b4cfcc"
 
 # Shared curl options
-UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.75 Safari/537.36"
+UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
 
 # Static Google Analytics cookies to make requests look like normal browser traffic.
 # These are NOT tied to any real user session — they're generic values used to avoid
