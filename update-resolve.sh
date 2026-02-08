@@ -374,10 +374,22 @@ main() {
     echo -e "${BLUE}╚══════════════════════════════════════════╝${NC}"
     echo ""
 
-    # Check dependencies
+    # Install script dependencies if missing
+    local missing_tools=()
+    for cmd in curl jq git; do
+        if ! command -v "$cmd" &>/dev/null; then
+            missing_tools+=("$cmd")
+        fi
+    done
+    if [[ ${#missing_tools[@]} -gt 0 ]]; then
+        log "Installing missing tools: ${missing_tools[*]}"
+        sudo pacman -S --needed --noconfirm "${missing_tools[@]}"
+    fi
+
+    # Verify core tools are available (makepkg/pacman should always exist on Arch)
     for cmd in curl jq makepkg pacman git; do
         if ! command -v "$cmd" &>/dev/null; then
-            err "Missing dependency: $cmd"
+            err "Missing dependency: $cmd (could not auto-install)"
             exit 1
         fi
     done
