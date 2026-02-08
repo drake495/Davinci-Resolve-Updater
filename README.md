@@ -8,11 +8,12 @@ Checks for new versions via Blackmagic's API, downloads the installer, fetches t
 
 1. Queries Blackmagic's API for the latest stable Linux version
 2. Compares against your currently installed version
-3. Downloads the ~3GB zip (bypassing the manual web registration form)
-4. Fetches the latest `davinci-resolve` PKGBUILD from the AUR
-5. Patches `pkgver` if the AUR is behind the latest release
-6. Regenerates SHA256 checksums
-7. Builds and installs via `makepkg -sric` (stays tracked in pacman/yay)
+3. Installs all runtime dependencies (official repos + AUR)
+4. Downloads the ~3GB zip (bypassing the manual web registration form)
+5. Fetches the latest `davinci-resolve` PKGBUILD from the AUR
+6. Patches `pkgver` if the AUR is behind the latest release
+7. Regenerates SHA256 checksums
+8. Builds and installs via `makepkg -sric` (stays tracked in pacman/yay)
 
 ## Dependencies
 
@@ -20,7 +21,39 @@ Checks for new versions via Blackmagic's API, downloads the installer, fetches t
 - `jq`
 - `git`
 - `makepkg` / `pacman` (included with Arch)
+- `yay` or `paru` (AUR helper — needed for AUR-only runtime deps)
 - `updpkgsums` (optional, from `pacman-contrib` — falls back to manual hash update)
+
+If you don't have an AUR helper installed, the script will tell you how to install `yay`.
+
+## Runtime dependencies
+
+The script automatically installs these before building. Packages in official repos are installed via `pacman`; AUR-only packages are installed via your AUR helper. When a package has multiple providers, the first option is selected automatically.
+
+| Package | Source |
+|---------|--------|
+| `glu` | official |
+| `gtk2` | official |
+| `libpng12` | AUR |
+| `fuse2` | official |
+| `opencl-driver` | official (multiple providers) |
+| `qt5-x11extras` | official |
+| `qt5-svg` | official |
+| `qt5-webengine` | official |
+| `qt5-websockets` | official |
+| `qt5-quickcontrols2` | official |
+| `qt5-multimedia` | official |
+| `libxcrypt-compat` | AUR |
+| `xmlsec` | official |
+| `java-runtime` | official (multiple providers) |
+| `ffmpeg4.4` | AUR |
+| `gst-plugins-bad-libs` | official |
+| `python-numpy` | official |
+| `tbb` | official |
+| `apr-util` | official |
+| `luajit` | official |
+| `libc++` | AUR |
+| `libc++abi` | AUR |
 
 ## Installation
 

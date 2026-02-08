@@ -145,6 +145,69 @@ load_config() {
         '{firstname:$fn, lastname:$ln, email:$em, phone:$ph, country:$co, state:$st, city:$ci, street:$sr, product:"DaVinci Resolve"}')
 }
 
+# --- Dependency Management ---
+
+# Runtime dependencies from the AUR PKGBUILD
+RESOLVE_DEPS=(
+    glu gtk2 libpng12 fuse2 opencl-driver
+    qt5-x11extras qt5-svg qt5-webengine qt5-websockets qt5-quickcontrols2 qt5-multimedia
+    libxcrypt-compat xmlsec java-runtime ffmpeg4.4
+    gst-plugins-bad-libs python-numpy tbb apr-util luajit
+    libc++ libc++abi
+)
+
+install_dependencies() {
+    log "Checking runtime dependencies..."
+
+    local missing_repo=()
+    local missing_aur=()
+
+    for pkg in "${RESOLVE_DEPS[@]}"; do
+        # Skip if already installed (check provides too)
+        if pacman -Q "$pkg" &>/dev/null || pacman -Qq -g "$pkg" &>/dev/null; then
+            continue
+        fi
+
+        # Check if available in official repos
+        if pacman -Si "$pkg" &>/dev/null 2>&1; then
+            missing_repo+=("$pkg")
+        else
+            missing_aur+=("$pkg")
+        fi
+    done
+
+    # Install official repo packages
+    if [[ ${#missing_repo[@]} -gt 0 ]]; then
+        log "Installing from official repos: ${missing_repo[*]}"
+        yes "" | sudo pacman -S --needed --noconfirm "${missing_repo[@]}"
+        ok "Repo dependencies installed"
+    fi
+
+    # Install AUR packages
+    if [[ ${#missing_aur[@]} -gt 0 ]]; then
+        local aur_helper=""
+        if command -v yay &>/dev/null; then
+            aur_helper="yay"
+        elif command -v paru &>/dev/null; then
+            aur_helper="paru"
+        fi
+
+        if [[ -n "$aur_helper" ]]; then
+            log "Installing from AUR via ${aur_helper}: ${missing_aur[*]}"
+            yes "" | "$aur_helper" -S --needed --noconfirm "${missing_aur[@]}"
+            ok "AUR dependencies installed"
+        else
+            err "The following packages are only available in the AUR: ${missing_aur[*]}"
+            err "Install an AUR helper first: sudo pacman -S --needed git base-devel && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si"
+            return 1
+        fi
+    fi
+
+    if [[ ${#missing_repo[@]} -eq 0 && ${#missing_aur[@]} -eq 0 ]]; then
+        ok "All dependencies already installed"
+    fi
+}
+
 # --- Core Functions ---
 
 # Step 1: Get installed version
@@ -351,6 +414,9 @@ main() {
         warn "Check-only mode. Exiting."
         exit 0
     fi
+
+    # Install dependencies (repo + AUR)
+    install_dependencies
 
     # Create build directory
     mkdir -p "$BUILD_DIR"
