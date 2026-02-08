@@ -179,7 +179,10 @@ install_dependencies() {
     # Install official repo packages
     if [[ ${#missing_repo[@]} -gt 0 ]]; then
         log "Installing from official repos: ${missing_repo[*]}"
-        yes "" | sudo pacman -S --needed --noconfirm "${missing_repo[@]}"
+        # yes "" auto-selects the default when pacman prompts for a provider choice.
+        # When pacman finishes it closes stdin, causing yes to exit 141 (SIGPIPE).
+        # With pipefail that would kill the script, so we check pacman's exit code directly.
+        yes "" | sudo pacman -S --needed --noconfirm "${missing_repo[@]}" || [[ ${PIPESTATUS[1]} -eq 0 ]]
         ok "Repo dependencies installed"
     fi
 
@@ -194,7 +197,7 @@ install_dependencies() {
 
         if [[ -n "$aur_helper" ]]; then
             log "Installing from AUR via ${aur_helper}: ${missing_aur[*]}"
-            yes "" | "$aur_helper" -S --needed --noconfirm "${missing_aur[@]}"
+            yes "" | "$aur_helper" -S --needed --noconfirm "${missing_aur[@]}" || [[ ${PIPESTATUS[1]} -eq 0 ]]
             ok "AUR dependencies installed"
         else
             err "The following packages are only available in the AUR: ${missing_aur[*]}"
@@ -353,10 +356,10 @@ build_and_install() {
     pushd "$BUILD_DIR" > /dev/null
 
     if [[ "$SKIP_INSTALL" == "true" ]]; then
-        yes "" | makepkg -sf --noconfirm
+        yes "" | makepkg -sf --noconfirm || [[ ${PIPESTATUS[1]} -eq 0 ]]
         ok "Package built (not installed due to --skip-install)"
     else
-        yes "" | makepkg -sric --noconfirm
+        yes "" | makepkg -sric --noconfirm || [[ ${PIPESTATUS[1]} -eq 0 ]]
         ok "Package built and installed!"
     fi
 
