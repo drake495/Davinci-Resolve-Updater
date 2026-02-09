@@ -25,6 +25,7 @@ Checks for new versions via Blackmagic's API, downloads the installer, fetches t
 - `updpkgsums` (optional, from `pacman-contrib` — falls back to manual hash update)
 
 If you don't have an AUR helper installed, the script will tell you how to install `yay`.
+If a dependency install fails, the script will exit, and manual intervention to get that dependency package installed will be required. Re-run the script after you have the problematic dependency installed.
 
 ## Runtime dependencies
 
@@ -39,7 +40,7 @@ The script automatically installs these before building. Packages in official re
 | `opencl-driver` | official (multiple providers) |
 | `qt5-x11extras` | official |
 | `qt5-svg` | official |
-| `qt5-webengine` | official |
+| `qt5-webengine` | AUR |
 | `qt5-websockets` | official |
 | `qt5-quickcontrols2` | official |
 | `qt5-multimedia` | official |
