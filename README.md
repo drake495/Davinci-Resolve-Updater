@@ -60,7 +60,7 @@ The script automatically installs these before building. Packages in official re
 
 ```bash
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/update-resolve.git
+git clone https://github.com/drake495/Davinci-Resolve-Updater.git
 cd update-resolve
 
 # Make executable
