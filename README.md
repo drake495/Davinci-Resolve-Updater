@@ -16,7 +16,7 @@ Watch the How-To Video! Click on the Thumbnail!
 1. Queries Blackmagic's API for the latest stable Linux version
 2. Compares against your currently installed version
 3. Installs all runtime dependencies (official repos + AUR)
-4. Downloads the ~3GB zip (bypassing the manual web registration form)
+4. Downloads the ~3GB zip, submitting the web registration form for you with your saved info
 5. Fetches the latest `davinci-resolve` PKGBUILD from the AUR
 6. Patches `pkgver` if the AUR is behind the latest release
 7. Applies a defensive patch to the AUR `prepare()` step when it hardcodes a stale bundled library version (see Troubleshooting)
