@@ -1,0 +1,5 @@
+# Local build scratch space (downloaded installers, extracted squashfs, makepkg output)
+build/
+
+# Registration info written by --reconfigure (name/email/phone/address) — never commit
+.config

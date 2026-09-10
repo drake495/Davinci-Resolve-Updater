@@ -13,8 +13,8 @@
 set -euo pipefail
 
 # Version info
-SCRIPT_VERSION="2026.05.0"
-RESOLVE_TESTED="20.3.3-1"
+SCRIPT_VERSION="2026.09.0"
+RESOLVE_TESTED="21.1-1"
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -314,6 +314,47 @@ setup_pkgbuild() {
         return 1
     fi
 
+    # Defensive patch: AUR's prepare() hardcodes the exact glib version suffix
+    # bundled inside the Resolve installer when stripping those bundled copies
+    # before symlinking to the system libs. Blackmagic changes that bundled
+    # version across Resolve releases (glib 2.68 -> 2.82 going from 20.x to
+    # 21.1), so the literal filename goes stale and prepare() aborts on
+    # `rm: cannot remove ...: No such file or directory`. Replacing the
+    # hardcoded suffixes with globs keeps the same targets, version-agnostic.
+    # Self-retiring: this is an exact literal match, not a pattern. The moment
+    # the AUR maintainer edits this block at all, the old text disappears and
+    # this substitution silently no-ops, so it is safe to leave in permanently.
+    # NOTE: the pattern MUST stay quoted in the substitution below. Unquoted,
+    # bash treats the backslash line-continuations in it as escapes and the
+    # replacement silently does nothing while still reporting a match.
+    local broken_rm_block='rm squashfs-root/libs/libglib-2.0.so.0{,.6800.4} \
+     squashfs-root/libs/libgio-2.0.so.0{,.6800.4} \
+     squashfs-root/libs/libgmodule-2.0.so.0{,.6800.4} \
+     squashfs-root/libs/libgobject-2.0.so.0{,.6800.4} \
+     squashfs-root/libs/libc++.so.1{,.0} \
+     squashfs-root/libs/libc++abi.so.1{,.0}'
+    local fixed_rm_block='rm -f squashfs-root/libs/libglib-2.0.so.0* \
+     squashfs-root/libs/libgio-2.0.so.0* \
+     squashfs-root/libs/libgmodule-2.0.so.0* \
+     squashfs-root/libs/libgobject-2.0.so.0* \
+     squashfs-root/libs/libc++.so.1* \
+     squashfs-root/libs/libc++abi.so.1*'
+    local pkgbuild_content
+    pkgbuild_content=$(<PKGBUILD)
+    if [[ "$pkgbuild_content" == *"$broken_rm_block"* ]]; then
+        warn "Patching known-fragile AUR prepare() step (hardcoded glib bundle version)"
+        pkgbuild_content="${pkgbuild_content//"$broken_rm_block"/"$fixed_rm_block"}"
+        if [[ "$pkgbuild_content" == *"$broken_rm_block"* ]]; then
+            err "Defensive patch failed to apply — build would abort in prepare()"
+            popd > /dev/null
+            return 1
+        fi
+        printf '%s\n' "$pkgbuild_content" > PKGBUILD
+        ok "Patched AUR prepare() glib strip step to be version-agnostic"
+    else
+        log "AUR PKGBUILD prepare() already changed upstream — skipping defensive patch"
+    fi
+
     # Check if AUR PKGBUILD version matches what we're building
     local aur_version
     aur_version=$(grep '^pkgver=' PKGBUILD | cut -d= -f2)
@@ -369,6 +410,47 @@ build_and_install() {
     fi
 
     popd > /dev/null
+}
+
+# Step 6: Warn about runtime support directories Resolve cannot create itself.
+# /opt/resolve is root-owned 0755, so any support directory Resolve still needs
+# to create at first launch fails, and the app exits with "Failed to create
+# application support directories" before it can even write a log. Blackmagic
+# adds to this set across releases (21.1 introduced Immersive/), so this only
+# warns and prints the fix rather than acting, and deliberately treats its list
+# as a floor rather than pretending to be complete.
+check_runtime_dirs() {
+    local resolve_dir="/opt/resolve"
+    [[ -d "$resolve_dir" ]] || return 0
+
+    local needed=("Immersive")
+    local broken=() d
+    for d in "${needed[@]}"; do
+        if [[ ! -d "${resolve_dir}/${d}" || ! -w "${resolve_dir}/${d}" ]]; then
+            broken+=("$d")
+        fi
+    done
+
+    if [[ ${#broken[@]} -eq 0 ]]; then
+        ok "Resolve support directories look OK"
+        return 0
+    fi
+
+    echo ""
+    warn "Resolve will likely fail to launch with 'Failed to create application support directories'"
+    warn "Missing or not writable by $(id -un):"
+    for d in "${broken[@]}"; do
+        echo "      ${resolve_dir}/${d}"
+    done
+    echo ""
+    echo "  Fix with:"
+    for d in "${broken[@]}"; do
+        echo "      sudo mkdir -p '${resolve_dir}/${d}' && sudo chown $(id -un):$(id -gn) '${resolve_dir}/${d}'"
+    done
+    echo ""
+    echo "  If it still fails, find the next one with:"
+    echo "      strace -f -e trace=mkdir,mkdirat davinci-resolve 2>&1 | grep -E 'EACCES|EPERM'"
+    echo ""
 }
 
 # --- Main ---
@@ -449,6 +531,10 @@ main() {
 
     # Build and install
     build_and_install
+
+    if [[ "$SKIP_INSTALL" != "true" ]]; then
+        check_runtime_dirs
+    fi
 
     echo ""
     ok "DaVinci Resolve ${latest_version} installed successfully!"
