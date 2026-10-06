@@ -13,8 +13,8 @@
 set -euo pipefail
 
 # Version info
-SCRIPT_VERSION="2026.09.0"
-RESOLVE_TESTED="21.1-1"
+SCRIPT_VERSION="2026.10.0"
+RESOLVE_TESTED="21.1.1-1"
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
