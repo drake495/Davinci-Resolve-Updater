@@ -31,7 +31,7 @@ Watch the How-To Video! Click on the Thumbnail!
 - `git`
 - `makepkg` / `pacman` (included with Arch)
 - `yay` or `paru` (AUR helper — needed for AUR-only runtime deps)
-- `updpkgsums` (optional, from `pacman-contrib` — falls back to manual hash update)
+- `updpkgsums` (from `pacman-contrib`, installed automatically if missing; recalculates the PKGBUILD checksums)
 
 If you don't have an AUR helper installed, the script will tell you how to install `yay`.
 If a dependency install fails, the script will exit, and manual intervention to get that dependency package installed will be required. Re-run the script after you have the problematic dependency installed.

@@ -4,7 +4,7 @@
 #
 # Usage: ./update-resolve.sh [--force] [--check-only] [--skip-install] [--reconfigure]
 #
-# Dependencies: curl, jq, makepkg, pacman, git
+# Dependencies: curl, jq, makepkg, pacman, git, updpkgsums (pacman-contrib)
 #
 # On first run, you'll be prompted for registration info (required by
 # Blackmagic's download API). Your info is saved locally in a config
@@ -373,25 +373,16 @@ setup_pkgbuild() {
         return 1
     fi
 
-    # Update sha256sums
+    # Update sha256sums for every source file (pacman-contrib, installed at startup)
     log "Generating sha256sums..."
-    local new_hash
-    new_hash=$(sha256sum "$zip_name" | awk '{print $1}')
-    # Use updpkgsums if available, otherwise manual update
-    if command -v updpkgsums &>/dev/null; then
-        updpkgsums 2>/dev/null
-        ok "Updated sha256sums via updpkgsums"
-    else
-        # Manual update: replace the first hash in sha256sums array
-        local old_hash
-        old_hash=$(grep -A1 "^sha256sums=" PKGBUILD | tail -1 | tr -d "' " | head -c 64)
-        if [[ -n "$old_hash" && ${#old_hash} -eq 64 ]]; then
-            sed -i "s/${old_hash}/${new_hash}/" PKGBUILD
-            ok "Updated zip sha256sum: ${new_hash:0:16}..."
-        else
-            warn "Could not auto-update sha256sum. You may need to run 'updpkgsums' manually."
-        fi
+    local sums_output
+    if ! sums_output=$(updpkgsums 2>&1); then
+        err "updpkgsums failed to update the PKGBUILD checksums:"
+        echo "$sums_output" >&2
+        popd > /dev/null
+        return 1
     fi
+    ok "Updated sha256sums via updpkgsums"
 
     popd > /dev/null
 }
@@ -461,11 +452,12 @@ main() {
     echo -e "${BLUE}╚══════════════════════════════════════════╝${NC}"
     echo ""
 
-    # Install script dependencies if missing
+    # Install script dependencies if missing (command -> package that provides it)
+    local -A tool_pkgs=([curl]=curl [jq]=jq [git]=git [updpkgsums]=pacman-contrib)
     local missing_tools=()
-    for cmd in curl jq git; do
+    for cmd in "${!tool_pkgs[@]}"; do
         if ! command -v "$cmd" &>/dev/null; then
-            missing_tools+=("$cmd")
+            missing_tools+=("${tool_pkgs[$cmd]}")
         fi
     done
     if [[ ${#missing_tools[@]} -gt 0 ]]; then
@@ -474,7 +466,7 @@ main() {
     fi
 
     # Verify core tools are available (makepkg/pacman should always exist on Arch)
-    for cmd in curl jq makepkg pacman git; do
+    for cmd in curl jq makepkg pacman git updpkgsums; do
         if ! command -v "$cmd" &>/dev/null; then
             err "Missing dependency: $cmd (could not auto-install)"
             exit 1
@@ -541,4 +533,7 @@ main() {
     log "Run 'davinci-resolve' to launch."
 }
 
-main "$@"
+# Run only when executed directly; tests/ sources this file to reach the functions.
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi
