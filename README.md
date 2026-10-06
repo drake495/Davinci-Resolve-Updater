@@ -144,6 +144,17 @@ pacman -Qo /opt/resolve/libs/<file>          # "No package owns" = safe to overw
 sudo pacman -U --overwrite '/opt/resolve/libs/<pattern>' <built-package>.pkg.tar.zst
 ```
 
+## Versioning and testing
+
+Versions are date-based: `YYYY.MM.N` (for example `2026.10.0`, then `2026.10.1` for a second release the same month). The version lives in `SCRIPT_VERSION` at the top of the script, in the line at the top of this README, and in a matching GitHub release and tag.
+
+- A release is cut when users would notice a change (a bug fix or a feature), after it has passed the checks below. Docs-only changes don't get one. Fixes made close together ship as one release with a short changelog.
+- "Tested with DaVinci Resolve" only changes after a full update on that Resolve version.
+- `main` is what users get from `git pull`, so nothing is pushed until it passes:
+  1. `./tests/test-checksums.sh` (about 30 seconds; no download, build or sudo)
+  2. A full update on a real Arch machine (`./update-resolve.sh --force` rebuilds even when you're current)
+  3. A full run on a clean Arch install when the change touches dependency setup
+
 ## License
 
 MIT
