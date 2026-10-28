@@ -2,7 +2,7 @@
 
 Automated DaVinci Resolve updater for Arch Linux.
 
-**Script version:** 2026.10.0 | **Tested with DaVinci Resolve:** 21.1.1-1
+**Script version:** 2026.10.1 | **Tested with DaVinci Resolve:** 21.1.2-1
 
 Checks for new versions via Blackmagic's API, downloads the installer, fetches the latest PKGBUILD from the AUR, updates version numbers and checksums, and builds/installs the package — all in one command.
 
@@ -15,7 +15,7 @@ Watch the How-To Video! Click on the Thumbnail!
 
 1. Queries Blackmagic's API for the latest stable Linux version
 2. Compares against your currently installed version
-3. Installs all runtime dependencies (official repos + AUR)
+3. Installs all runtime dependencies, read live from the AUR package
 4. Downloads the ~3GB zip, submitting the web registration form for you with your saved info
 5. Fetches the latest `davinci-resolve` PKGBUILD from the AUR
 6. Patches `pkgver` if the AUR is behind the latest release
@@ -30,7 +30,7 @@ Watch the How-To Video! Click on the Thumbnail!
 - `jq`
 - `git`
 - `makepkg` / `pacman` (included with Arch)
-- `yay` or `paru` (AUR helper — needed for AUR-only runtime deps)
+- `yay` or `paru` (AUR helper — only needed if the AUR package ever adds an AUR-only dependency; none today)
 - `updpkgsums` (from `pacman-contrib`, installed automatically if missing; recalculates the PKGBUILD checksums)
 
 If you don't have an AUR helper installed, the script will tell you how to install `yay`.
@@ -38,32 +38,30 @@ If a dependency install fails, the script will exit, and manual intervention to 
 
 ## Runtime dependencies
 
-The script automatically installs these before building. Packages in official repos are installed via `pacman`; AUR-only packages are installed via your AUR helper. When a package has multiple providers, the first option is selected automatically.
+The script reads the dependency list live from the AUR `davinci-resolve` package on every run, so it always matches the PKGBUILD being built. Packages in official repos are installed via `pacman`; any AUR-only package is installed via your AUR helper. When a package has multiple providers, the first option is selected automatically.
+
+As of Resolve 21.1.2-1, every dependency is in the official repos:
 
 | Package | Source |
 |---------|--------|
-| `glu` | official |
-| `gtk2` | official |
-| `libpng12` | AUR |
-| `fuse2` | official |
-| `opencl-driver` | official (multiple providers) |
-| `qt5-x11extras` | official |
-| `qt5-svg` | official |
-| `qt5-webengine` | AUR |
-| `qt5-websockets` | official |
-| `qt5-quickcontrols2` | official |
-| `qt5-multimedia` | official |
-| `libxcrypt-compat` | AUR |
-| `xmlsec` | official |
-| `java-runtime` | official (multiple providers) |
-| `ffmpeg4.4` | AUR |
-| `gst-plugins-bad-libs` | official |
-| `python-numpy` | official |
-| `tbb` | official |
-| `apr-util` | official |
-| `luajit` | official |
-| `libc++` | AUR |
-| `libc++abi` | AUR |
+| `glu` | extra |
+| `fuse2` | extra |
+| `opencl-driver` | extra (multiple providers) |
+| `qt5-x11extras` | extra |
+| `qt5-svg` | extra |
+| `qt5-quickcontrols2` | extra |
+| `qt5-multimedia` | extra |
+| `libxcrypt-compat` | core |
+| `xmlsec` | extra |
+| `java-runtime` | extra (multiple providers) |
+| `ffmpeg4.4` | extra |
+| `gst-plugins-bad-libs` | extra |
+| `python-numpy` | extra |
+| `tbb` | extra (provided by `onetbb`) |
+| `apr-util` | extra |
+| `luajit` | extra |
+| `libc++` | extra |
+| `libc++abi` | extra |
 
 ## Installation
 

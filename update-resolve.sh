@@ -13,8 +13,8 @@
 set -euo pipefail
 
 # Version info
-SCRIPT_VERSION="2026.10.0"
-RESOLVE_TESTED="21.1.1-1"
+SCRIPT_VERSION="2026.10.1"
+RESOLVE_TESTED="21.1.2-1"
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -152,29 +152,37 @@ load_config() {
 
 # --- Dependency Management ---
 
-# Runtime dependencies from the AUR PKGBUILD
-RESOLVE_DEPS=(
-    glu gtk2 libpng12 fuse2 opencl-driver
-    qt5-x11extras qt5-svg qt5-webengine qt5-websockets qt5-quickcontrols2 qt5-multimedia
-    libxcrypt-compat xmlsec java-runtime ffmpeg4.4
-    gst-plugins-bad-libs python-numpy tbb apr-util luajit
-    libc++ libc++abi
-)
+# Runtime dependencies, read live from the AUR package so this list can't drift
+# from the PKGBUILD that actually gets built. (A hardcoded copy here went stale
+# and kept installing gtk2, libpng12, qt5-webengine and qt5-websockets from the
+# AUR after the PKGBUILD had dropped them.)
+get_resolve_deps() {
+    curl -fsS "https://aur.archlinux.org/rpc/v5/info?arg[]=${PRODUCT}" \
+        | jq -r '.results[0].Depends // empty | .[]'
+}
 
 install_dependencies() {
     log "Checking runtime dependencies..."
 
+    local resolve_deps=()
+    mapfile -t resolve_deps < <(get_resolve_deps)
+    if [[ ${#resolve_deps[@]} -eq 0 ]]; then
+        err "Could not read ${PRODUCT} dependencies from the AUR (network?)"
+        return 1
+    fi
+
     local missing_repo=()
     local missing_aur=()
 
-    for pkg in "${RESOLVE_DEPS[@]}"; do
-        # Skip if already installed (check provides too)
-        if pacman -Q "$pkg" &>/dev/null || pacman -Qq -g "$pkg" &>/dev/null; then
+    for pkg in "${resolve_deps[@]}"; do
+        # pacman -T and -Sp resolve virtual packages (opencl-driver, java-runtime,
+        # tbb); -Q and -Si don't, which sent those to the AUR helper by mistake.
+        if pacman -T "$pkg" &>/dev/null; then
             continue
         fi
 
         # Check if available in official repos
-        if pacman -Si "$pkg" &>/dev/null 2>&1; then
+        if pacman -Sp "$pkg" </dev/null &>/dev/null; then
             missing_repo+=("$pkg")
         else
             missing_aur+=("$pkg")
@@ -353,6 +361,23 @@ setup_pkgbuild() {
         ok "Patched AUR prepare() glib strip step to be version-agnostic"
     else
         log "AUR PKGBUILD prepare() already changed upstream — skipping defensive patch"
+    fi
+
+    # Defensive patch: prepare() runs `patchelf --set-rpath` on every ELF file.
+    # Resolve 21.1.2 started bundling CEF, whose chrome-sandbox has a note layout
+    # patchelf can't rewrite ("cannot normalize PT_NOTE segment: non-contiguous
+    # SHT_NOTE sections"), so prepare() aborts. chrome-sandbox only links libc
+    # and libpthread, so the rpath does nothing for it and skipping it is safe.
+    # Self-retiring the same way as the glib patch: exact literal match.
+    local broken_find_line='done < <(find "squashfs-root" -type f -size -32M -print0)'
+    local fixed_find_line='done < <(find "squashfs-root" -type f -size -32M ! -name chrome-sandbox -print0)'
+    pkgbuild_content=$(<PKGBUILD)
+    if [[ "$pkgbuild_content" == *"$broken_find_line"* ]]; then
+        warn "Patching AUR prepare() to skip patchelf on chrome-sandbox"
+        printf '%s\n' "${pkgbuild_content//"$broken_find_line"/"$fixed_find_line"}" > PKGBUILD
+        ok "Patched AUR prepare() patchelf loop"
+    else
+        log "AUR PKGBUILD patchelf loop already changed upstream — skipping defensive patch"
     fi
 
     # Check if AUR PKGBUILD version matches what we're building
